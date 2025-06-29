@@ -1,0 +1,1344 @@
+---
+title: "<span style='color: purple ;'>**Sosyal Medya ve Web Analizi**</span>"
+author: "<span style='color: Black ;'>**Youtube Yorum Analizi**</span>"
+output:
+  html_document:
+    theme: journal   # Şık bir tema seçildi (diğer seçenekler: united, cosmo, cerulean)
+    toc: true        # İçindekiler tablosu ekler
+    toc_float: true  # Sayfa kaydırıldığında içindekiler sabit kalır
+    number_sections: false # Bölüm numaralandırması ekler
+    df_print: paged  # Büyük tablolar için sayfalama özelliği
+editor_options:
+  chunk_output_type: inline
+---
+## 📌 **İçindekiler**  
+1. [Ahmet Minguzzi Haber Analizi](#ahmet-minguzzi-haber-analizi)  
+2. [Asgari Ücret Haber Analizi](#asgari-ücret-haber-analizi)  
+3. [İstanbul Depremi Haber Analizi](#istanbul-deprem-haber-analizi)  
+4. [İklim Degisikligi Haber Analizi](#iklim-değişikliği-haber-analizi)  
+5. [Sonuç](#sonuç)  
+
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+library(shiny)
+library(bslib)
+library(ggplot2)
+library(dplyr)
+library(tidytext)
+library(httr)
+library(jsonlite)
+library(stringr)
+library(DT)
+library(readr)
+library(showtext)
+library(grid)
+library(gridExtra)
+library(wordcloud2)
+library(igraph)
+library(ggraph)
+library(shinycssloaders)
+library(shiny)
+library(bslib)
+library(tidyr)
+library(openai)
+library(leaflet)
+library(ggwordcloud)
+library(visNetwork)
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+Sys.setlocale("LC_ALL", "Turkish")
+
+```
+
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+turkce_stopwords <- c("acaba","ama","aslında","az","bazı","belki","ben","biri","birkaç","birçok","bu","çünkü","da","mal","a","ilgili","te","ederiz","herkese",
+                      "daha","zaman","olan","ediyorum","de","defa","diye","en","gibi","hem","hep","hepsi","her","hiç","için","ile","ise","senin","gerek","olursa",
+                      "kez","ki","kim","bile","yapan","demek","bunlara","kendileri","mı","mu","mü","mi","ne","neden","nerde","nerede","nereye","e","ay","hic","buna",
+                      "niçin","niye","o","sanki","şey","siz","kesinlikle","hala","geldi","yapar","şu","tüm","ve","veya","ya","yani","yine","istiyoruz","olarak",
+                      "yok","zaten","çok","nasıl","şimdi","bana","bende","beni","boyle","boyu","sana","sizi","benim","biz","bizim","bize","ediyor","devam","bizde","yaa",
+                      "bizi","bunun","bunu","diğer","cok","oldu","ah","a","olsun","tey","be","kat","eğer","elbette","et","fakat","falan","versin","yerine","baya","biraz",
+                      "filan","haliyle","halen","hangi","hani","ver","olsa","olmaz","an","edin","herkes","illa","işte","iç","kadar","karşın","vs","ilk","hale",
+                      "kendi","kimse","onu","nasil","olabilir","madem","meğer","nedenle","oluyor","yerini","diyor","ona","sadece","şayet","konu","bak","olup",
+                      "v.s.","vs.","tek","olur","ye","veren","varsa","birde","yapma","yapmak","yoksa","artık","üzere","diğeri","kendisi","buna","alan","asla","icin",
+                      "kimseye","gelsin","ederim","dedi","onlar","bizler","sizler","bunlar","şunlar","birisi","birileri","herhangi","şekilde","evet","anda","sizin",
+                      "tarafta","bence","hemen","tarafından","bir","iki","üç","dört","beş","altı","yedi","sekiz","dokuz","on","önce","eden","etsin","geliyor","nin","dan",
+                      "sonra","diliyorum","size","bi","ancak","arada","etrafında","beri","yakınında","üstünde","altında","içinde","yada","ahh","nedir","gelecek",
+                      "dışında","karşı","karşısında","var","ah","sen","seni","den","gelince","önünde","arkasında","benzer","yaklaşık","gelen","fazla","degil",
+                      "üzerine","uzerinde","dolayı","birlikte","belli","olacak","yaz","butun","kendini","bununla","dilerim","etmek","dilerim","ederiz","hatta"
+)
+```
+
+
+# 1. Ahmet Minguzzi Haber Analizi
+  *"Haber Analizimizdeki amaç toplumun Ahmet Minguzzi olayı hakkında duygu ve düşüncelerini öğrenmek ve bu konu hakkındaki düşüncelerinden yola çıkarak verdikleri tepkiler sayesinde analizleri gerçekleştirmek."*
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+dosya_yolu_ahmet <- "C:\\Users\\cyurt\\OneDrive\\Belgeler\\sosyalmedyaproje\\ahmetminguzziyorumlari.csv"
+yorumlar <- read_csv(dosya_yolu_ahmet, locale = locale(encoding = "UTF-8"))
+
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+yorumlar_tidy <- yorumlar %>%
+  unnest_tokens(kelime, Yorumlar) %>%
+  filter(!kelime %in% turkce_stopwords) %>%  # Stopwords cikarma
+  filter(str_detect(kelime, "^[a-z????????????]+$")) %>%  # Yalnizca harf iceren kelimeler
+  mutate(kelime = str_to_lower(kelime))  # Tum kelimeleri kucuk harfe cevirme
+```
+
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+kelime_frekans <- yorumlar_tidy %>%
+  count(kelime, sort = TRUE)
+
+## ilk 50 kelimeyi al
+kelime_frekans_top50 <- kelime_frekans %>% 
+  top_n(100, n)
+```
+
+##### Kelime Bulutu
+  Youtube üzerinden alınan yorumların kelime analizi sonuçlarında öncelikli olarak “Allah, ceza, adalet, anne, Ahmet, cani, idam, katil, eylesin” gibi sözcükler öne çıkmıştır. Bunun sonucunda bu olayın bir öldürülme vakası olduğunu ve toplumun bu konu hakkında aile yakınlarına baş sağlığı dilediğini ayrıca hukuki sürecin nasıl ilerlemesi gerektiğini belli etmiştir. 
+
+	"Katil", "Caniler", "İdam", "Ceza", "Adalet" kelimeler ile adalet talebi oldukça yoğun. Kullanıcılar faile karşı ciddi bir öfke duyuyor ve ceza talebinde bulunuyorlar. "İdam" kelimesi sıklıkla geçmiş, bu da toplumsal öfkenin boyutunu gösteriyor.
+
+
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+wordcloud2(kelime_frekans_top50, shape = "diamond")
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+library(igraph)
+library(forcats)
+# En sik gecen 20 kelimeyi al
+kelime_frekans_top20 <- kelime_frekans %>%
+  filter(!is.na(kelime)) %>%
+  top_n(20, n) %>%
+  mutate(kelime = fct_reorder(kelime, n))  # S??ralama i??in
+
+# Grafik
+ggplot(kelime_frekans_top20, aes(x = n, y = kelime, fill = n)) +
+  geom_col(show.legend = FALSE) +
+  scale_fill_gradient(low = "#a6cee3", high = "#1f78b4") +
+  labs(
+    title = "En Sik Gecen 20 Kelime",
+    x = "Frekans",
+    y = "Kelime"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.text = element_text(color = "gray20"),
+    axis.title = element_text(face = "bold")
+  )
+```
+
+
+##### Emoji Analizi
+
+  Emoji Analizinde görüldüğü üzere kelime bulutunu destekleyen emojileri barındırıyor. Bu emojiler insanların üzgünlüğünü olayın duygusal boyutunu vurgulanmıştır. Özellikle 🥺 😭 🙏 ❤️ emojiler halkın tepki olarak üzüntülü, dua ve destek duygularını temsil ediyor.  😡 💔 😞 Öfke, kalp kırıklığı ve üzüntü içeren emojilerin sıklığı da dikkat çekmiştir. Bu da olayın sadece acı değil aynı zamanda öfke yarattığını da belirtiyor.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+yorum_metni <- yorumlar$Yorumlar
+# Emoji Unicode aralığı
+emoji_pattern <- "[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002700-\U000027BF]"
+
+# Emojileri bul
+tum_emojiler <- str_extract_all(yorum_metni, emoji_pattern)
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# Listeyi düzleştir
+tum_emojiler_flat <- unlist(tum_emojiler)
+
+# Hangi emojiden kaç tane var
+emoji_sayim <- as.data.frame(table(tum_emojiler_flat)) %>%
+  arrange(desc(Freq))
+
+# İlk 10 emojiyi al
+emoji_top10 <- emoji_sayim %>%
+  slice_max(order_by = Freq, n = 10)
+
+# Grafik
+ggplot(emoji_top10, aes(x = reorder(tum_emojiler_flat, Freq), y = Freq, fill = Freq)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  geom_text(aes(label = tum_emojiler_flat), 
+            hjust = -0.5, 
+            size = 10, 
+            family = "Segoe UI Emoji") + 
+  geom_text(aes(label = Freq), 
+            hjust = 1.2, 
+            color = "white",
+            fontface = "bold",
+            size = 5) +
+  scale_fill_gradient(low = "#add8e6", high = "#005f73") +
+  coord_flip() +
+  labs(title = "Ahmet Minguzzi Yorumlarinda En Cok Kullanılan 10 Emoji", 
+       subtitle = "Yorumlardan elde edilen verilere gore emoji kullanımı",
+       x = NULL, y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 20, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    axis.text.x = element_text(face = "italic"),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+
+##### 2'li ve 3'lü Kelime Grupları
+
+  En sık kullanılan 2’li ve 3’lü kelime gruplarını incelediğimizde en çok “Allah Sabır, Rahmet Eylesin, Ağır ceza, çocuk değil, ağır ceza” kelimeleri 2li kelime gruplarında öne çıkarken 3’lü kelime gruplarında “Allah rahmet eylesin, sözün bittiği yer, ağır cezayı alsınlar, suça sürüklenen çocuk,” gibi cümleler cinayeti işleyenlerin en ağır cezayı almasını hatta bunu yapanların çocuk olduğunu anlamamıza yardımcı olmakta. Bu olayın toplumda büyük ses getirdiğini suçluların en ağır cezayı alması gerektiğini vurgulamış ayrıca ailesine sabırlar dilemeyi de unutmadıklarını söyleyebilirim. 
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+yorum_df <- tibble(yorum = yorum_metni)
+
+# Bigram (iki kelimelik grup) ??retimi
+bigramlar <- yorum_df %>%
+  unnest_tokens(bigram, yorum, token = "ngrams", n = 2) %>%
+  separate(bigram, into = c("kelime1", "kelime2"), sep = " ") %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d")) %>%
+  unite(bigram, kelime1, kelime2, sep = " ")
+
+# En cok gecen 15 bigram
+bigram_sayim <- bigramlar %>%
+  count(bigram, sort = TRUE) %>%
+  slice_max(n, n = 15)
+
+# Grafik
+ggplot(bigram_sayim, aes(x = reorder(bigram, n), y = n, fill = n)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  coord_flip() +
+  geom_text(aes(label = n), hjust = -0.2, size = 5, fontface = "bold") +
+  scale_fill_gradient(low = "#ffe0ac", high = "#ff6f00") +
+  labs(title = "Ahmet Minguzzi Yorumlarinda En Sik Gecen 2'li Kelime Gruplari",
+       subtitle = "Turkce durak kelimeler haric tutulmustur",
+       x = NULL, y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 20, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    axis.text.x = element_text(face = "italic"),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+trigramlar <- yorum_df %>%
+  unnest_tokens(trigram, yorum, token = "ngrams", n = 3) %>%
+  separate(trigram, into = c("kelime1", "kelime2", "kelime3"), sep = " ") %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !kelime3 %in% turkce_stopwords,
+         !str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d"),
+         !str_detect(kelime3, "\\d")) %>%
+  unite(trigram, kelime1, kelime2, kelime3, sep = " ")
+
+trigram_sayim <- trigramlar %>%
+  count(trigram, sort = TRUE) %>%
+  slice_max(n, n = 30)
+
+# Grafik
+ggplot(trigram_sayim, aes(x = reorder(trigram, n), y = n, fill = n)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  coord_flip() +
+  geom_text(aes(label = n), hjust = -0.2, size = 5, fontface = "bold") +
+  scale_fill_gradient(low = "#b3e5fc", high = "#0288d1") +
+  labs(title = "Ahmet Minguzzi Yorumlarinda En Sik Gecen 3'lu Kelime Gruplari",
+       subtitle = "Turkce durak kelimeler haric tutulmustur",
+       x = NULL, y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 20, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    axis.text.x = element_text(face = "italic"),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+##### Kelime Ağı
+  Kelime ağında aslında diğer analizde olanlara rastladığımızı söyleyebilirim. Ama ayıran birkaç nokta var bunlardan biri “emsal karar” olarak bu cinayetin sonuca varmasını istediklerini, “tecrit edilmeli” diyerek cinayeti işleyenlerin toplumdan dışlanması gerektiğini söylemekte. Diğer bir dikkatimizi çeken “kufi kafada elleri” sözleri aslında bir şarkı sözü olduğunu ve toplumun bu şarkı ile “Ahmet” bağdaştırdığını söyleyebiliriz.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# Trigram cikarma ve temizleme
+trigramlar <- yorum_df %>%
+  unnest_tokens(trigram, yorum, token = "ngrams", n = 3) %>%
+  separate(trigram, into = c("kelime1", "kelime2", "kelime3"), sep = " ") %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !kelime3 %in% turkce_stopwords,
+         !str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d"),
+         !str_detect(kelime3, "\\d"),
+         str_detect(kelime1, "^[a-z????????????]+$"),
+         str_detect(kelime2, "^[a-z????????????]+$"),
+         str_detect(kelime3, "^[a-z????????????]+$")) %>%
+  mutate(across(c(kelime1, kelime2, kelime3), str_to_lower))
+
+# Trigramlardan bigram (kelime1-kelime2) uret ve frekans hesapla
+bigram_counts <- trigramlar %>%
+  count(kelime1, kelime2, sort = TRUE) %>%
+  filter(n >= 4)
+
+# En sik gecen ilk 200 bigram'i al
+bigram_counts_filtered <- bigram_counts %>% 
+  slice_max(order_by = n, n = 100)
+
+#Node ile frekans hesapla (hem kelime1 hem kelime2 i??in)
+node_freq1 <- bigram_counts_filtered %>%
+  group_by(kelime1) %>%
+  summarise(freq = sum(n)) %>%
+  rename(id = kelime1)
+
+node_freq2 <- bigram_counts_filtered %>%
+  group_by(kelime2) %>%
+  summarise(freq = sum(n)) %>%
+  rename(id = kelime2)
+
+
+node_freq_all <- bind_rows(node_freq1, node_freq2) %>%
+  group_by(id) %>%
+  summarise(freq = sum(freq))
+
+nodes <- node_freq_all %>%
+  mutate(label = id,
+         value = freq,
+         title = paste0("Kelime: ", id, "<br>Frekans: ", freq),
+         color = "rgba(255,105,180,0.8)",  # Pembe ton
+         font = list(size = 20))
+
+edges <- data.frame(
+  from = bigram_counts_filtered$kelime1,
+  to = bigram_counts_filtered$kelime2,
+  value = bigram_counts_filtered$n,
+  title = paste("S??kl??k:", bigram_counts_filtered$n),
+  color = list(color = "steelblue", highlight = "red")
+)
+
+# Interaktif visNetwork grafigi
+visNetwork(nodes, edges, width = "100%", height = "700px") %>%
+  visEdges(smooth = TRUE, arrows = "to") %>%
+  visOptions(highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE),
+             nodesIdSelection = TRUE) %>%
+  visLayout(randomSeed = 123) %>%
+  visPhysics(stabilization = TRUE) %>%
+  visInteraction(navigationButtons = TRUE) %>%
+  visNodes(shape = "dot", shadow = TRUE)
+```
+
+
+
+```{r}
+duygu_sozlugu <- tibble(
+  kelime = c("harika", "mükemmel", "seviyorum", "güzel", "beğendim", 
+             "k??t??", "berbat", "nefret", "rezalet", "çirkin", 
+             "asla", "tiksindim", "sevdim", "süper", "bayildim", "hiç",
+             "caniligi", "acimasizlik", "canavarca", "vahşice", 
+             "şeytan", "vicdansiz","katil","aşağlık","pislik","katil","kati","vahşice"),
+  duygu = c("olumlu", "olumlu", "olumlu", "olumlu", "olumlu", 
+            "olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz", 
+            "olumsuz", "olumsuz", "olumlu", "olumlu", "olumlu", "olumsuz",
+            "olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz","olumsuz","olumsuz","olumsuz","olumsuz","olumsuz","olumsuz")
+)
+```
+
+##### Manuel Oluşturulan Duygu Analizi
+
+  Manuel olarak yapılan duygu analizinde Bert analizinde olduğu gibi burada da negatif duygular baskın çıkmıştır. Bunun sonucunda olayın toplumda negatif olarak değerlendirildiğini söyleyebiliriz. 
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# Trigram uret ve stopword'leri filtrele
+trigramlar <- yorum_df %>%
+  unnest_tokens(trigram, yorum, token = "ngrams", n = 3) %>%
+  separate(trigram, into = c("kelime1", "kelime2", "kelime3"), sep = " ") %>%
+  filter(!str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d"),
+         !str_detect(kelime3, "\\d")) %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !kelime3 %in% turkce_stopwords)
+
+# Trigram kelimelerini duygu sozluk ile eslestir
+trigram_duygu <- trigramlar %>%
+  pivot_longer(cols = c(kelime1, kelime2, kelime3), 
+               names_to = "pozisyon", values_to = "kelime") %>%
+  left_join(duygu_sozlugu, by = "kelime") %>%
+  filter(!is.na(duygu)) %>%
+  count(duygu, sort = TRUE)
+
+# Grafik cizimi
+ggplot(trigram_duygu, aes(x = reorder(duygu, n), y = n, fill = duygu)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  geom_text(aes(label = n), vjust = -0.5, size = 6, fontface = "bold") +
+  scale_fill_manual(values = c("olumlu" = "#4caf50", "olumsuz" = "#f44336")) +
+  labs(title = "Yorumlardaki Duygu Dagilimi",
+       
+       x = "Duygu", y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(face = "bold", size = 18, hjust = 0.5),
+        plot.subtitle = element_text(size = 13, hjust = 0.5))
+```
+
+##### Bert İle Duygu Analizi
+
+Yapılan Bert analizi sonucunda yorumların negatif kısmının ağırlıklı olduğunu bu da olayın toplumda genel olarak olumsuz karşılandığını ve tepkilere neden olduğu söylenebilir. Yorumların matematiksel hesaplamalarını yorumlanırsa ortalama “-0.393” yorumların negatif ağırlıklı olduğunu 
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# Dosya yolunu belirt
+dosya_yolu <- "C:/Users/cyurt/OneDrive/Belgeler/sosyalmedyaproje/yorumlar_duygu.csv"
+
+# Veriyi oku
+veri <- read_csv(dosya_yolu, locale = locale(encoding = "UTF-8"))
+
+
+# Duygu dagilimini hesapla
+polarite_sayilari_veri <- veri %>%
+  group_by(duygu) %>%
+  summarise(sayi = n())
+
+# Grafikle goster
+ggplot(polarite_sayilari_veri, aes(x = reorder(duygu, -sayi), y = sayi, fill = duygu)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  scale_fill_manual(values = c("positive" = "#2ecc71", "neutral" = "#95a5a6", "negative" = "#e74c3c")) +
+  labs(title = "Yorumlarin Polarite Dagilimi",
+       x = "Duygu Turu",
+       y = "Yorum Sayisi") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+# 2. Asgari Ücret Haber Analizi
+  Asgari ücret analizinde toplumun değişen asgari ücret hakkındaki düşüncelerini içeren haber yorumlarından alınmıştır.
+  
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+dosya_yolu_asgari <- "C:\\Users\\cyurt\\OneDrive\\Belgeler\\sosyalmedyaproje\\asgeriucret.csv"
+yorumlar_asgari <- read_csv(dosya_yolu_asgari, locale = locale(encoding = "UTF-8"))
+```
+
+
+
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# 3. Yorumlardan Stopwords cikartma ve Temizleme
+yorumlar_tidy_asgari <- yorumlar_asgari %>%
+  unnest_tokens(kelime, Yorumlar) %>%
+  filter(!kelime %in% turkce_stopwords) %>%  # Stopwords cikarma
+  filter(str_detect(kelime, "^[a-z????????????]+$")) %>%  # Yalnizca harf iceren kelimeler
+  mutate(kelime = str_to_lower(kelime))  # Tum kelimeleri kucuk harfe cevirme
+
+```
+
+##### Kelime Bulutu 
+  Kelime bulutundan elde edilen analiz ile öne çıkan kelimeler “asgari, zam, bin” kavramları konu ile alakalı olan öne çıkan kelimelerdir. Diğer kelimeler ise “emekli, millet, para, enflasyon, kira, zor” kelimeler öne çıkmıştır. 
+
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# 4. Kelime Frekanslarini Hesaplama
+kelime_frekans_asgari <- yorumlar_tidy_asgari %>%
+  count(kelime, sort = TRUE)
+
+## ilk 50 kelimeyi al
+kelime_frekans_asgaritop50 <- kelime_frekans_asgari %>% 
+  top_n(60, n)
+
+# Word Cloud'u ciz
+
+wordcloud2(kelime_frekans_asgaritop50, shape = "star")
+```
+
+##### Emoji Analizi
+  Emoji analizine baktığımızda kalp, kahkaha, üzgün, alkış, kızgın ifadelerin toplumun asgari ücret hakkında emoji analizinde net bir çıktı edemediğimi vurgulamak isterim.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+#Emoji analizi
+
+# Yorum metinlerini cek
+yorum_metni_asgari <- yorumlar_asgari$Yorumlar
+
+# Emoji Unicode araligi
+emoji_pattern <- "[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002700-\U000027BF]"
+
+# Emojileri bul
+tum_emojiler_asgari <- str_extract_all(yorum_metni_asgari, emoji_pattern)
+
+# Listeyi duzlestir
+tum_emojiler_flat_asgari <- unlist(tum_emojiler_asgari)
+
+# Hangi emojiden kac tane var
+emoji_sayim_asgari <- as.data.frame(table(tum_emojiler_flat_asgari)) %>%
+  arrange(desc(Freq))
+
+# ilk 10 emojiyi al
+emoji_asgaritop10 <- emoji_sayim_asgari %>%
+  slice_max(order_by = Freq, n = 10)
+
+# Grafik
+ggplot(emoji_asgaritop10, aes(x = reorder(tum_emojiler_flat_asgari, Freq), y = Freq, fill = Freq)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  geom_text(aes(label = tum_emojiler_flat_asgari), 
+            hjust = -0.5, 
+            size = 10, 
+            family = "emoji") +  # Burayi degistirdik
+  geom_text(aes(label = Freq), 
+            hjust = 1.2, 
+            color = "white",
+            fontface = "bold",
+            size = 5) +
+  scale_fill_gradient(low = "#add8e6", high = "#005f73") +
+  coord_flip() +
+  labs(title = "Asgari Ucret Emojileri", 
+       subtitle = "Yorumlardan elde edilen verilere göre emoji kullanimi",
+       x = NULL, y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 20, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    axis.text.x = element_text(face = "italic"),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+```
+
+
+##### 2'li ve 3'lü Kelim Grupları
+  Kelime gruplarında ise “asgari ücret, erken seçim, düşük emekli maaşı” ve asgari ücret tahminleri barındıran bu kelime grupları bireylerin tahmini beklediğinin altında gerçekleştiğini söyleyebiliriz. Hatta asgari ücret konusu olan bu vidoların içinde emekliye de yer verilmesi emeklilerin kendi seslerini duyurmaya çalıştığını anlayabiliriz.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+yorum_df_asgari <- tibble(yorum = yorum_metni_asgari)
+
+# Bigram (iki kelimelik grup) uretimi
+bigramlar_asgari <- yorum_df_asgari %>%
+  unnest_tokens(bigram, yorum, token = "ngrams", n = 2) %>%
+  separate(bigram, into = c("kelime1", "kelime2"), sep = " ") %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d")) %>%
+  unite(bigram, kelime1, kelime2, sep = " ")
+
+# En sik gecen 15 bigram
+bigram_sayim_asgari <- bigramlar_asgari %>%
+  count(bigram, sort = TRUE) %>%
+  slice_max(n, n = 15)
+
+# Grafik
+ggplot(bigram_sayim_asgari, aes(x = reorder(bigram, n), y = n, fill = n)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  coord_flip() +
+  geom_text(aes(label = n), hjust = -0.2, size = 5, fontface = "bold") +
+  scale_fill_gradient(low = "#ffe0ac", high = "#ff6f00") +
+  labs(title = "Asgari Ucret Yorumlarinda En Sik Gecen 2'li Kelime Gruplari",
+       subtitle = "Turkce durak kelimeler haric tutulmustur",
+       x = NULL, y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 20, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    axis.text.x = element_text(face = "italic"),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# Trigram uretimi
+trigramlar_asgari <- yorum_df_asgari %>%
+  unnest_tokens(trigram, yorum, token = "ngrams", n = 3) %>%
+  separate(trigram, into = c("kelime1", "kelime2", "kelime3"), sep = " ") %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !kelime3 %in% turkce_stopwords,
+         !str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d"),
+         !str_detect(kelime3, "\\d")) %>%
+  unite(trigram, kelime1, kelime2, kelime3, sep = " ")
+
+# En sik gecen 15 trigram
+trigram_sayim_asgari <- trigramlar_asgari %>%
+  count(trigram, sort = TRUE) %>%
+  slice_max(n, n = 15)
+# Grafik
+ggplot(trigram_sayim_asgari, aes(x = reorder(trigram, n), y = n, fill = n)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  coord_flip() +
+  geom_text(aes(label = n), hjust = -0.2, size = 5, fontface = "bold") +
+  scale_fill_gradient(low = "#b3e5fc", high = "#0288d1") +
+  labs(title = "Asgari Ucret Yorumlarinda En Sik Gecen 3'lü Kelime Gruplari",
+       subtitle = "Turkce durak kelimeler haric tutulmustur",
+       x = NULL, y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 20, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    axis.text.x = element_text(face = "italic"),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+##### Kelime Ağı
+
+  Kelime Ağında ise “kira, elektrik, su, Pazar” kelimeleri asgari ücretin harcanacağı bireysel ihtiyaçları vurgulanmıştır. Bunlar dışında “memura zam” aslında memurların da kendilerine zam istediğini göstermektedir.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# Trigram cikarimi ve temizleme
+trigramlar_asgari <- yorum_df_asgari %>%
+  unnest_tokens(trigram, yorum, token = "ngrams", n = 3) %>%
+  separate(trigram, into = c("kelime1", "kelime2", "kelime3"), sep = " ") %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !kelime3 %in% turkce_stopwords,
+         !str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d"),
+         !str_detect(kelime3, "\\d"),
+         str_detect(kelime1, "^[a-z????????????]+$"),
+         str_detect(kelime2, "^[a-z????????????]+$"),
+         str_detect(kelime3, "^[a-z????????????]+$")) %>%
+  mutate(across(c(kelime1, kelime2, kelime3), str_to_lower))
+
+# Trigramlardan bigram (kelime1-kelime2) uret ve frekans hesapla
+bigram_counts_asgari <- trigramlar_asgari %>%
+  count(kelime1, kelime2, sort = TRUE) %>%
+  filter(n >= 6)
+
+# En sik gecen ilk 200 bigram'i al
+bigram_counts_filtered_asgari <- bigram_counts_asgari %>% 
+  slice_max(order_by = n, n = 100)
+
+# Diam frekanslar??n?? hesapla (hem kelime1 hem kelime2 icin)
+node_freq1_asgari <- bigram_counts_filtered_asgari %>%
+  group_by(kelime1) %>%
+  summarise(freq = sum(n)) %>%
+  rename(id = kelime1)
+
+node_freq2_asgari <- bigram_counts_filtered_asgari %>%
+  group_by(kelime2) %>%
+  summarise(freq = sum(n)) %>%
+  rename(id = kelime2)
+
+# Frekanslari birlestir
+node_freq_all_asgari <- bind_rows(node_freq1_asgari, node_freq2_asgari) %>%
+  group_by(id) %>%
+  summarise(freq = sum(freq))
+nodes_asgari <- node_freq_all_asgari %>%
+  mutate(label = id,
+         value = freq,
+         title = paste0("Kelime: ", id, "<br>Frekans: ", freq),
+         color = "rgba(255,105,180,0.8)",  # Pembe ton
+         font = list(size = 20))
+
+# Kenar veri cercevesi
+edges_asgari <- data.frame(
+  from = bigram_counts_filtered_asgari$kelime1,
+  to = bigram_counts_filtered_asgari$kelime2,
+  value = bigram_counts_filtered_asgari$n,
+  title = paste("S??kl??k:", bigram_counts_filtered_asgari$n),
+  color = list(color = "steelblue", highlight = "red")
+)
+
+# Interaktif visNetwork grafigi
+visNetwork(nodes_asgari, edges_asgari, width = "100%", height = "700px") %>%
+  visEdges(smooth = TRUE, arrows = "to") %>%
+  visOptions(highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE),
+             nodesIdSelection = TRUE) %>%
+  visLayout(randomSeed = 123) %>%
+  visPhysics(stabilization = TRUE) %>%
+  visInteraction(navigationButtons = TRUE) %>%
+  visNodes(shape = "dot", shadow = TRUE)
+```
+
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+duygu_sozlugu_asgari <- tibble(
+  kelime = c("harika", "mükemmel", "seviyorum", "güzel", "beğendim", 
+             "kötü", "berbat", "nefret", "rezalet", "çirkin", 
+             "asla", "tiksindim", "sevdim", "süper", "bayıldım", "hiç",
+             "caniligi", "acımasızlık", "canavarca", "vahşice", 
+             "şeytan", "vicdansiz","katil","aşağılık","pislik","katil","kati","vahşice","yıkım", "ihmal", "enkaz", "çöktü", 
+             "felaket","ölüm", "korkunç", "unutuldu", "çaresiz", "sessizlik","korku","deprem","adaletsiz", "düşük", "geçim", "kira", "enflasyon"),
+  duygu = c("olumlu", "olumlu", "olumlu", "olumlu", "olumlu", 
+            "olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz", 
+            "olumsuz", "olumsuz", "olumlu", "olumlu", "olumlu", "olumsuz",
+            "olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz","olumsuz","olumsuz","olumsuz","olumsuz","olumsuz","olumsuz","olumsuz", 
+            "olumsuz", "olumsuz", "olumsuz", "olumsuz","olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz","olumsuz","olumsuz","olumsuz", "olumsuz", "olumsuz","olumsuz","olumsuz")
+)
+
+showtext_auto()
+font_add_google("Poppins", "poppins")
+
+```
+
+##### Manuel Oluşturulan Duygu Analizi
+
+  Manuel duygu analizinde de negatif ağırlıklı yorumların bulunduğu söylenebilir. Bunlardan 360 negatif 55'i ise pozitif olduğunu söylemekte.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# Trigram uretimi (yorum_df zaten yorumlar verisini iseriyor)
+trigramlar_asgari <- yorum_df_asgari %>%
+  unnest_tokens(trigram, yorum, token = "ngrams", n = 3) %>%
+  separate(trigram, into = c("kelime1", "kelime2", "kelime3"), sep = " ") %>%
+  filter(!str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d"),
+         !str_detect(kelime3, "\\d")) %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !kelime3 %in% turkce_stopwords)
+
+# Trigram icindeki kelimeleri pivotlayip duygu e??lemesi yap
+trigram_duygu_asgari <- trigramlar_asgari %>%
+  pivot_longer(cols = c(kelime1, kelime2, kelime3), 
+               names_to = "pozisyon", values_to = "kelime") %>%
+  left_join(duygu_sozlugu_asgari, by = "kelime") %>%
+  filter(!is.na(duygu)) %>%
+  count(duygu, sort = TRUE)
+
+ggplot(trigram_duygu_asgari, aes(x = reorder(duygu, -n), y = n, fill = duygu)) +
+  geom_col(width = 0.6, color = "white", linewidth = 0.4) +
+  geom_text(aes(label = n), vjust = -0.4, size = 6, family = "poppins", fontface = "bold") +
+  scale_fill_manual(values = c("olumlu" = "#66bb6a", "olumsuz" = "#ef5350")) +
+  labs(
+    title = "Asgari Ucret Yorumlarinda Duygu Dagilimi",
+    subtitle = "Trigram analizine gore olumlu ve olumsuz ifadelerin fazlaliği",
+    x = NULL, y = NULL
+  ) +
+  theme_minimal(base_family = "poppins") +
+  theme(
+    plot.title = element_text(size = 20, hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    axis.text = element_text(size = 13, face = "bold"),
+    axis.ticks = element_blank(),
+    panel.grid.major.y = element_blank(),
+    legend.position = "none",
+    plot.margin = margin(20, 20, 20, 20)
+  )
+```
+
+
+#####Bert İle Duygu analizi
+
+  Bert ile yapılan duygu analizinde 2654 negatif yorum bulunmaktadır.  Ortalama ise -0.483 olduğunu bu da yorumların genel anlamda negatife kaydığını söyleyebiliriz. 
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+dosya_yolu_asgari <- "C:/Users/cyurt/OneDrive/Belgeler/sosyalmedyaproje/yorumlarasgari_duygu.csv"
+
+# Veriyi oku
+veri_asgari <- read_csv(dosya_yolu_asgari, locale = locale(encoding = "UTF-8"))
+```
+
+
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+duygu_sayilari_asgari <- veri_asgari %>%
+  count(duygu)
+
+
+ggplot(duygu_sayilari_asgari, aes(x = duygu, y = n, fill = duygu)) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = n), vjust = -0.4, size = 4, family = "poppins") +
+  scale_fill_viridis(discrete = TRUE) +
+  labs(title = "Yorumlarin Duygu Dagilimi", x = "", y = "") +
+  theme_minimal(base_family = "poppins") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 18, hjust = 0.5, face = "bold"))
+```
+
+# 3. İstanbul Depremi Haber Analizi
+
+  Bu haber analizinde amaç toplumun deprem hakkındaki bilinç düzeyini yaşanılan depremdeki duygularını düşüncelerini öğrenerek olası bir depremde ne kadar hazır olduklarını öğrenmektir.
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# 2. Dosyayi Okuma
+dosya_yolu_deprem <- "C:\\Users\\cyurt\\OneDrive\\Belgeler\\sosyalmedyaproje\\depremyorum.csv"
+yorumlar_deprem <- read_csv(dosya_yolu_deprem, locale = locale(encoding = "UTF-8"))
+
+# 3. Yorumlardan Stopwords cikartma ve Temizleme
+yorumlar_tidy_deprem <- yorumlar_deprem %>%
+  unnest_tokens(kelime, Yorumlar) %>%
+  filter(!kelime %in% turkce_stopwords) %>%  # Stopwords cikarma
+  filter(str_detect(kelime, "^[a-z????????????]+$")) %>%  # Yalnizca harf iceren kelimeler
+  mutate(kelime = str_to_lower(kelime))  # Tum kelimeleri kucuk harfe cevirme
+
+```
+
+##### Kelime Bulutu
+  Kelime bulutunda elde edilenler “deprem, İstanbul, hoca, Celal, Fatih, kanal, bilim, bina, fay, panik” kavramları toplumun korktuğunu, endişe düzeyini hem de konunun sosyal, bilimsel ve duygusal boyutlarının bir arada ele alındığını gösterir.
+  
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# 4. Kelime Frekanslarini Hesaplama
+kelime_frekans_deprem <- yorumlar_tidy_deprem %>%
+  count(kelime, sort = TRUE)
+
+## ilk 50 kelimeyi al
+kelime_frekans_deprem50 <- kelime_frekans_deprem %>% 
+  top_n(100, n)
+
+# Word Cloud'u ciz
+
+wordcloud2(kelime_frekans_deprem50, shape = "diamond")
+```
+
+##### Emoji Analizi
+  Emoji analizinde kullanılan 🥺emojisi en sık kullanılan emoji olup toplumun yaşanan olay karşısında duyduğu endişe ve üzüntüyü güçlü biçimde yansıtır. ❤️emojisi ise toplumsal dayanışmayı, sevg, ve destek göstergesi olarak yaygın biçimde kullanılmıştır. 😂 kahkaha emojisi olan bu emoji muhtemelen ironik ve eleştirel tepkilerde yer almakta.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+#Emoji analizi
+
+# Yorum metinlerini cek
+yorum_metni_deprem <- yorumlar_deprem$Yorumlar
+
+# Emoji Unicode araliği
+emoji_pattern <- "[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002700-\U000027BF]"
+
+# Emojileri bul
+tum_emojiler_deprem <- str_extract_all(yorum_metni_deprem, emoji_pattern)
+
+# Listeyi duzlestir
+tum_emojiler_flat_deprem <- unlist(tum_emojiler_deprem)
+
+# Hangi emojiden kac tane var
+emoji_sayim_deprem <- as.data.frame(table(tum_emojiler_flat_deprem)) %>%
+  arrange(desc(Freq))
+
+# ilk 10 emojiyi al
+emoji_deprem_top10 <- emoji_sayim_deprem %>%
+  slice_max(order_by = Freq, n = 10)
+
+# Grafik
+ggplot(emoji_deprem_top10, aes(x = reorder(tum_emojiler_flat_deprem, Freq), y = Freq, fill = Freq)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  geom_text(aes(label = tum_emojiler_flat_deprem), 
+            hjust = -0.5, 
+            size = 10, 
+            family = "Segoe UI Emoji") + 
+  geom_text(aes(label = Freq), 
+            hjust = 1.2, 
+            color = "white",
+            fontface = "bold",
+            size = 5) +
+  scale_fill_gradient(low = "#add8e6", high = "#005f73") +
+  coord_flip() +
+  labs(title = "Deprem Yorumlarinda En Cok Kullanilan 10 Emoji", 
+       subtitle = "Yorumlardan elde edilen verilere gore emoji kullanimi",
+       x = NULL, y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 20, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    axis.text.x = element_text(face = "italic"),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+##### Kelime Grupları
+  Yapılan 2’li ve 3’lü kelime gruplarına baktığımızda “ahmet bey, celal bey, şener üşümezsoy” öne çıkması toplumda onları takip ettiğini hatta bu isimleri tanımayan kişi bu analizlerden edindiği bilgi ışığında deprem ile ilgilendiğini ya da bu konu hakkında videoları olduğunu anlayabilir. Ayrıca insanlar “kanal İstanbul, büyük İstanbul ” hakkında videolarda bahsettiğini söyleyebiliriz. 3’lü kelime gruplarında ise “büyük İstanbul depremi” geçmesi toplum içinde bu depremin geldiğini veya hatırlattığını “çök kapan tutun” kelime grubunda ise toplumun deprem konusunda bilgisinin ve tecrübesi olduğu söylenebilir. Ayrıca bu depremin yaşanması ile 6 Şubat depreminin akıllara tekrar geldiği söylenebilir. Diğer bir nokta “şilan anneme ulaşabilir” kısmı haber programında yaşanılan bir olayın halkın dikkatini çektiğini ve değerleri ön planda tuttuğu söylenebilir.
+  
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# Dataframe'e cevir
+yorum_df_deprem <- tibble(yorum = yorum_metni_deprem)
+
+# Bigram (iki kelimelik grup) uretimi
+bigramlar_deprem <- yorum_df_deprem %>%
+  unnest_tokens(bigram, yorum, token = "ngrams", n = 2) %>%
+  separate(bigram, into = c("kelime1", "kelime2"), sep = " ") %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d")) %>%
+  unite(bigram, kelime1, kelime2, sep = " ")
+
+# En sik gecen 15 bigram
+bigram_sayim_deprem <- bigramlar_deprem %>%
+  count(bigram, sort = TRUE) %>%
+  slice_max(n, n = 15)
+
+# Grafik
+ggplot(bigram_sayim_deprem, aes(x = reorder(bigram, n), y = n, fill = n)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  coord_flip() +
+  geom_text(aes(label = n), hjust = -0.2, size = 5, fontface = "bold") +
+  scale_fill_gradient(low = "#ffe0ac", high = "#ff6f00") +
+  labs(title = "Deprem Yorumlarinda En Sik Gecen 2'li Kelime Gruplari",
+       subtitle = "Turkce durak kelimeler haric tutulmustur",
+       x = NULL, y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 20, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    axis.text.x = element_text(face = "italic"),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# Trigram uretimi
+trigramlar_deprem <- yorum_df_deprem %>%
+  unnest_tokens(trigram, yorum, token = "ngrams", n = 3) %>%
+  separate(trigram, into = c("kelime1", "kelime2", "kelime3"), sep = " ") %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !kelime3 %in% turkce_stopwords,
+         !str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d"),
+         !str_detect(kelime3, "\\d")) %>%
+  unite(trigram, kelime1, kelime2, kelime3, sep = " ")
+
+# En sik gecen 15 trigram
+trigram_sayim_deprem <- trigramlar_deprem %>%
+  count(trigram, sort = TRUE) %>%
+  slice_max(n, n = 15)
+# Grafik
+ggplot(trigram_sayim_deprem, aes(x = reorder(trigram, n), y = n, fill = n)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  coord_flip() +
+  geom_text(aes(label = n), hjust = -0.2, size = 5, fontface = "bold") +
+  scale_fill_gradient(low = "#b3e5fc", high = "#0288d1") +
+  labs(title = "Deprem Yorumlarinda En Sik Gecen 3'lu Kelime Gruplari",
+       subtitle = "Turkce durak kelimeler haric tutulmustur",
+       x = NULL, y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 20, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    axis.text.x = element_text(face = "italic"),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+
+##### Kelime Ağı 
+  Kelime Ağı analizinde “allah korusun, rabbim rahmet eylesin, rahmet Allah’tan olsun, herkesi muhafaza eylesin” gibi ifadeler, kullanıcıların duygularını ve dini temennilerini dile getirdiklerini göstermekte. Diğer bir kelime ağı “kanal İstanbul projesi”, “deprem riski taşıyor”, “fay hattı geçiyor”, “Ege denizi açıklarında”, “kuzey anadolu fay hattı” gibi yapılar, depremin coğrafi boyutunun halk tarafından tartışıldığını göstermiştir. 
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+trigramlar_deprem <- yorum_df_deprem %>%
+  unnest_tokens(trigram, yorum, token = "ngrams", n = 3) %>%
+  separate(trigram, into = c("kelime1", "kelime2", "kelime3"), sep = " ") %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !kelime3 %in% turkce_stopwords,
+         !str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d"),
+         !str_detect(kelime3, "\\d"))
+
+# Bigram sayisini olustur (trigramlardan bigramlara donusturulmeli)
+bigram_counts_deprem <- trigramlar_deprem %>%
+  count(kelime1, kelime2) %>%
+  filter(n >= 10)
+
+# En sik gecen ilk 350 bigram'i al
+bigram_counts_filtered_deprem <- bigram_counts_deprem %>% 
+  head(100)
+
+# Dugumler ve kenarlar (filtrelenmis)
+nodes_deprem <- data.frame(id = unique(c(bigram_counts_filtered_deprem$kelime1, bigram_counts_filtered_deprem$kelime2)),
+                    label = unique(c(bigram_counts_filtered_deprem$kelime1, bigram_counts_filtered_deprem$kelime2)))
+
+edges_deprem <- data.frame(from = bigram_counts_filtered_deprem$kelime1,
+                    to = bigram_counts_filtered_deprem$kelime2,
+                    value = bigram_counts_filtered_deprem$n,
+                    title = paste("Siklik:", bigram_counts_filtered_deprem$n))
+
+# Interaktif network (filtrelenmis)
+visNetwork(nodes_deprem, edges_deprem, width = "100%", height = "700px") %>%
+  visEdges(smooth = FALSE, arrows = "to") %>%
+  visOptions(highlightNearest = TRUE, nodesIdSelection = TRUE) %>%
+  visLayout(randomSeed = 123)
+
+bigram_counts_filtered_deprem <- bigram_counts %>% 
+  filter(n >= 10)
+```
+
+##### Manuel Duygu Analizi
+  Manuel olarak hazırlanan duygu analizinin de negatif(939) çıkması yorumların genel olarak negatif ağırlıklı olduğunu gösterir.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+duygu_sozlugu_ek <- tibble(
+  kelime = c("harika", "mükemmel", "seviyorum", "güzel", "beğendim", 
+             "kötü", "berbat", "nefret", "rezalet", "çirkin", 
+             "asla", "tiksindim", "sevdim", "süper", "bayıldım", "hiç",
+             "caniligi", "acımasızlık", "canavarca", "vahşice", 
+             "şeytan", "vicdansiz","katil","aşağılık","pislik","katil","kati","vahşice","yıkım", "ihmal", "enkaz", "çöktü", 
+             "felaket","ölüm", "korkunç", "unutuldu", "çaresiz", "sessizlik","korku","deprem","adaletsiz", "düşük", "geçim", "kira", "enflasyon"),
+  duygu = c("olumlu", "olumlu", "olumlu", "olumlu", "olumlu", 
+            "olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz", 
+            "olumsuz", "olumsuz", "olumlu", "olumlu", "olumlu", "olumsuz",
+            "olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz","olumsuz","olumsuz","olumsuz","olumsuz","olumsuz","olumsuz","olumsuz", 
+            "olumsuz", "olumsuz", "olumsuz", "olumsuz","olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz","olumsuz","olumsuz","olumsuz", "olumsuz", "olumsuz","olumsuz","olumsuz")
+)
+
+# Var olan duygu sozlugu ile birlestir
+duygu_sozlugu_deprem <- bind_rows(duygu_sozlugu_ek, duygu_sozlugu_ek)
+# Trigram uret ve stopword'leri filtrele
+trigramlar_deprem <- yorum_df_deprem %>%
+  unnest_tokens(trigram, yorum, token = "ngrams", n = 3) %>%
+  separate(trigram, into = c("kelime1", "kelime2", "kelime3"), sep = " ") %>%
+  filter(!str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d"),
+         !str_detect(kelime3, "\\d")) %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !kelime3 %in% turkce_stopwords)
+
+# Trigram kelimelerini duygu sozlugu ile eslestir
+trigram_duygu_deprem <- trigramlar_deprem %>%
+  pivot_longer(cols = c(kelime1, kelime2, kelime3), 
+               names_to = "pozisyon", values_to = "kelime") %>%
+  left_join(duygu_sozlugu_deprem, by = "kelime") %>%
+  filter(!is.na(duygu)) %>%
+  count(duygu, sort = TRUE)
+
+# Grafik cizimi
+ggplot(trigram_duygu_deprem, aes(x = reorder(duygu, n), y = n, fill = duygu)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  geom_text(aes(label = n), vjust = -0.5, size = 6, fontface = "bold") +
+  scale_fill_manual(values = c("olumlu" = "#4caf50", "olumsuz" = "#f44336")) +
+  labs(title = "Yorumlardaki Duygu Dagilimi",
+       subtitle = "Her trigramdaki anlamli kelimeler duygu sozlugu ile eslestirildi",
+       x = "Duygu", y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(face = "bold", size = 18, hjust = 0.5),
+        plot.subtitle = element_text(size = 13, hjust = 0.5))
+
+```
+##### Bert ile Duygu Analizi
+  Deprem hakkında yapılan Bert analizinde Negatif duygunun 2486 çıkarak ağırlıklı olduğunu görüldü.  Ortalama duygu skorunun “-0.145” yani negatif çıkmıştır. Ama bu durum negatif bir duygu durumunu yansıttığını gösteriyor. Deprem gibi bir felaket durumun böyle sonuçlar beklenebilir çünkü insanlar genellikle endişe, üzüntü ve korku gibi olumsuz duyguları ifade eder. Standart sapma ve varyans baktığımızda nispete 1’e yakın çıkmıştır. Bu da yorumlar arasında belirgin duygu çeşitliliği olduğunu gösterir. Sebebi ise yardımlaşma veya dayanışma içeren yorumların pozitif duygular içermesi olabilir. 
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# Dosya yolunu belirt
+dosya_yolu_deprem_duygu <- "C:/Users/cyurt/OneDrive/Belgeler/sosyalmedyaproje/yorumlardeprem_duygu.csv"
+
+# Veriyi oku
+veri_deprem <- read_csv(dosya_yolu_deprem_duygu, locale = locale(encoding = "UTF-8"))
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+duygu_df_deprem <- read.csv("C:/Users/cyurt/OneDrive/Belgeler/sosyalmedyaproje/yorumlardeprem_duygu.csv")
+```
+
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+# Duygu dagilimi hesapla
+polarite_sayilari_deprem <- duygu_df_deprem %>%
+  group_by(duygu) %>%
+  summarise(sayi = n())
+
+# Grafikle goster
+ggplot(polarite_sayilari_deprem, aes(x = reorder(duygu, -sayi), y = sayi, fill = duygu)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  scale_fill_manual(values = c("positive" = "#2ecc71", "neutral" = "#95a5a6", "negative" = "#e74c3c")) +
+  labs(title = "Yorumlarin Duygu Dagilimi",
+       x = "Duygu Turu",
+       y = "Yorum Sayisi") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+# 4. İklim Degisikligi Haber Analizi
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+dosya_yolu_iklim <- "C:/Users/cyurt/OneDrive/Belgeler/sosyalmedyaproje/iklimdegisikligi.csv"
+yorumlar_iklim <- read_csv(dosya_yolu_iklim, locale = locale(encoding = "UTF-8"))
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+yorumlar_tidy_iklim <- yorumlar_iklim %>%
+  unnest_tokens(kelime, Yorumlar) %>%
+  filter(!kelime %in% turkce_stopwords) %>%  
+  filter(str_detect(kelime, "^[a-z????????????]+$")) %>%
+  mutate(kelime = str_to_lower(kelime))
+```
+
+##### Kelime Bulutu
+  İklim değişikliği hakkında yapılan yorumlarda kelime bulutuna yansıyanlardan bahsedecek olursam konu ile ilişkili olan “iklim, kozmik, karbon, manyetik, okyanuslar, radyasyon, atmosfer, su” kelimeleri öne çıkmakta bu da bireylerin bu konu hakkında bilgi sahibi olduğunu söylenebilir. Diğer göze çarpan kelimeler “kanun, insan, Allah, kabul” kelimeleri de diğer öne çıkan kelimelerdendir. 
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+kelime_frekans_iklim <- yorumlar_tidy_iklim %>%
+  count(kelime, sort = TRUE)
+
+## ??lk 50 kelimeyi al
+kelime_frekans_top50_iklim <- kelime_frekans_iklim %>% 
+  top_n(100, n)
+
+# Word Cloud'u ??iz
+wordcloud2(kelime_frekans_top50_iklim, size = 2, minRotation = -pi/6, maxRotation = pi/6, rotateRatio = 0.5)
+
+
+wordcloud2(kelime_frekans_top50_iklim, shape = "diamond")
+```
+
+##### Emoji Analizi
+  Emoji analizimizde “kalp, alkış, gülme, beğenme, dua, üzgün” öne çıkmakta bunların ise videoları beğendiklerini ayrıca konu hakkında endişeli oldukları söylenebilir. 
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+yorum_metni_iklim <- yorumlar_iklim$Yorumlar
+
+# Emoji Unicode aralığı
+emoji_pattern <- "[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002700-\U000027BF]"
+
+# Emojileri bul
+tum_emojiler_iklim <- str_extract_all(yorum_metni_iklim, emoji_pattern)
+
+# Listeyi düzleştir
+tum_emojiler_flat_iklim <- unlist(tum_emojiler_iklim)
+
+# Hangi emojiden kaç tane var
+emoji_sayim_iklim <- as.data.frame(table(tum_emojiler_flat_iklim)) %>%
+  arrange(desc(Freq))
+
+# İlk 10 emojiyi al
+emoji_top10_iklim <- emoji_sayim_iklim %>%
+  slice_max(order_by = Freq, n = 10)
+
+# Grafik
+ggplot(emoji_top10_iklim, aes(x = reorder(tum_emojiler_flat_iklim, Freq), y = Freq, fill = Freq)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  geom_text(aes(label = tum_emojiler_flat_iklim), 
+            hjust = -0.5, 
+            size = 10, 
+            family = "Segoe UI Emoji") + 
+  geom_text(aes(label = Freq), 
+            hjust = 1.2, 
+            color = "white",
+            fontface = "bold",
+            size = 5) +
+  scale_fill_gradient(low = "#add8e6", high = "#005f73") +
+  coord_flip() +
+  labs(title = "Iklim Degisikligi Yorumlarinda En Cok Kullanilan 10 Emoji", 
+       subtitle = "Yorumlardan elde edilen verilere gore emoji kullanımı",
+       x = NULL, y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 20, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    axis.text.x = element_text(face = "italic"),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+```
+
+##### 2'li ve 3'lü Kelime Grupları
+  En sık kullanılan kelime gruplarını 2’li olarak ele alındı. Bunu sonucunda toplumun iklim değişikliği hakkında yeterli bilgi ve tecrübeye sahip olduğunu hatta detaylı bir şekilde içerdiği konu başlıklarını kullandıklarını kelime gruplarında görmekteyiz. Örneğin kozmik radyasyon, aşırı enerji, iklim kanunu, güneş sistemi, karbon ayak izleri gibi sözcüklerle bu sonuca varılabilir.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+yorum_df_iklim <- tibble(yorum = yorum_metni_iklim)
+
+# Bigram (iki kelimelik grup) uretimi
+bigramlar_iklim <- yorum_df_iklim %>%
+  unnest_tokens(bigram, yorum, token = "ngrams", n = 2) %>%
+  separate(bigram, into = c("kelime1", "kelime2"), sep = " ") %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d")) %>%
+  unite(bigram, kelime1, kelime2, sep = " ")
+
+# En cok gecen 15 bigram
+bigram_sayim_iklim <- bigramlar_iklim %>%
+  count(bigram, sort = TRUE) %>%
+  slice_max(n, n = 15)
+
+# Grafik
+ggplot(bigram_sayim_iklim, aes(x = reorder(bigram, n), y = n, fill = n)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  coord_flip() +
+  geom_text(aes(label = n), hjust = -0.2, size = 5, fontface = "bold") +
+  scale_fill_gradient(low = "#ffe0ac", high = "#ff6f00") +
+  labs(title = "İklim Haber Yorumlarinda En Sik Gecen 2'li Kelime Gruplari",
+       subtitle = "Turkce durak kelimeler haric tutulmustur",
+       x = NULL, y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(face = "bold", size = 20, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    axis.text.x = element_text(face = "italic"),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+##### Kelime Ağı
+  Kelime ağında ise kelime grubunda olduğu gibi toplumun bu konuda bilgili olduğunu birbiriyle ilişkili kelimelerden çıkarım yapabiliriz. Bunlar dışında iklim kanunu kabul eden v etmeyen kesim olarak ayrışma var bu da aslında toplumun belirli bir kesimin iklim kanunu kabul ettiğini ama bazı kesimlerinde bir o kadar reddettiğini anlamış bulunmaktayız. Aslında duygu analizi kısmında da duyguların birbirine yakın olmasının diğer bir sebebi de kabul eden ve etmeyen olarak ayrılan kesime atıf olabilir. 
+  
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+yorum_df_iklim <- tibble(yorum = yorumlar_iklim$Yorumlar)
+
+# Trigram cikarma ve temizleme
+trigramlar_iklim <- yorum_df_iklim %>%
+  unnest_tokens(trigram, yorum, token = "ngrams", n = 3) %>%
+  separate(trigram, into = c("kelime1", "kelime2", "kelime3"), sep = " ") %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !kelime3 %in% turkce_stopwords,
+         !str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d"),
+         !str_detect(kelime3, "\\d"),
+         str_detect(kelime1, "^[a-z????????????]+$"),
+         str_detect(kelime2, "^[a-z????????????]+$"),
+         str_detect(kelime3, "^[a-z????????????]+$")) %>%
+  mutate(across(c(kelime1, kelime2, kelime3), str_to_lower))
+
+# Trigramlardan bigram (kelime1-kelime2) uret ve frekans hesapla
+bigram_counts_iklim <- trigramlar_iklim %>%
+  count(kelime1, kelime2, sort = TRUE) %>%
+  filter(n >= 4)
+
+# En sik gecen ilk 200 bigram'i al
+bigram_counts_filtered_iklim <- bigram_counts_iklim %>% 
+  slice_max(order_by = n, n = 100)
+
+#Node ile frekans hesapla (hem kelime1 hem kelime2 i??in)
+node_freq1_iklim <- bigram_counts_filtered_iklim %>%
+  group_by(kelime1) %>%
+  summarise(freq = sum(n)) %>%
+  rename(id = kelime1)
+
+node_freq2_iklim <- bigram_counts_filtered_iklim %>%
+  group_by(kelime2) %>%
+  summarise(freq = sum(n)) %>%
+  rename(id = kelime2)
+
+# Frekanslari birlestir
+node_freq_all_iklim <- bind_rows(node_freq1_iklim, node_freq2_iklim) %>%
+  group_by(id) %>%
+  summarise(freq = sum(freq))
+
+# Dugum veri cercevesi (gorsellestirme icin stil ozellikleri ile)
+nodes <- node_freq_all_iklim %>%
+  mutate(label = id,
+         value = freq,
+         title = paste0("Kelime: ", id, "<br>Frekans: ", freq),
+         color = "rgba(255,105,180,0.8)",  # Pembe ton
+         font = list(size = 20))
+
+# Kenar veri cercevesi
+edges <- data.frame(
+  from = bigram_counts_filtered_iklim$kelime1,
+  to = bigram_counts_filtered_iklim$kelime2,
+  value = bigram_counts_filtered_iklim$n,
+  title = paste("Siklik:", bigram_counts_filtered_iklim$n),
+  color = list(color = "steelblue", highlight = "red")
+)
+
+# Interaktif visNetwork grafigi
+visNetwork(nodes, edges, width = "100%", height = "700px") %>%
+  visEdges(smooth = TRUE, arrows = "to") %>%
+  visOptions(highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE),
+             nodesIdSelection = TRUE) %>%
+  visLayout(randomSeed = 123) %>%
+  visPhysics(stabilization = TRUE) %>%
+  visInteraction(navigationButtons = TRUE) %>%
+  visNodes(shape = "dot", shadow = TRUE)
+```
+
+##### Manuel Duygu Analizi
+  Bu duygu analizinde manuel olarak duygular içermekte. Bunun sonucunda yorumlar 136 negatif, 121 pozitif içermektedir. 
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+yorum_df_iklim <- tibble(yorum = yorumlar_iklim$Yorumlar)
+
+# Genisletilmis Turkce duygu sozlugu
+duygu_sozlugu <- tibble(
+  kelime = c("harika", "mükemmel", "seviyorum", "güzel", "beğendim", 
+             "kötü", "berbat", "nefret", "rezalet", "çirkin", 
+             "asla", "tiksindim", "sevdim", "süper", "bayıldım", "hiç",
+             "caniligi", "acımasızlık", "canavarca", "vahşice", 
+             "şeytan", "vicdansiz","katil","aşağılık","pislik","katil","kati","vahşice","yıkım", "ihmal", "enkaz", "çöktü", 
+             "felaket","ölüm", "korkunç", "unutuldu", "çaresiz", "sessizlik","korku","deprem","adaletsiz", "düşük", "geçim", "kira", "enflasyon","hayır","evet","değişikliğe evet"),
+  duygu = c("olumlu", "olumlu", "olumlu", "olumlu", "olumlu", 
+            "olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz", 
+            "olumsuz", "olumsuz", "olumlu", "olumlu", "olumlu", "olumsuz",
+            "olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz","olumsuz","olumsuz","olumsuz","olumsuz","olumsuz","olumsuz","olumsuz", 
+            "olumsuz", "olumsuz", "olumsuz", "olumsuz","olumsuz", "olumsuz", "olumsuz", "olumsuz", "olumsuz","olumsuz","olumsuz","olumsuz", "olumsuz", "olumsuz","olumsuz","olumsuz","olumsuz","olumlu","olumlu")
+)
+
+# Trigram uret ve stopword'leri filtrele
+trigramlar_iklim <- yorum_df_iklim %>%
+  unnest_tokens(trigram, yorum, token = "ngrams", n = 3) %>%
+  separate(trigram, into = c("kelime1", "kelime2", "kelime3"), sep = " ") %>%
+  filter(!str_detect(kelime1, "\\d"),
+         !str_detect(kelime2, "\\d"),
+         !str_detect(kelime3, "\\d")) %>%
+  filter(!kelime1 %in% turkce_stopwords,
+         !kelime2 %in% turkce_stopwords,
+         !kelime3 %in% turkce_stopwords)
+
+# Trigram kelimelerini duygu sozlugu ile eslestir
+trigram_duygu_iklim <- trigramlar_iklim %>%
+  pivot_longer(cols = c(kelime1, kelime2, kelime3), 
+               names_to = "pozisyon", values_to = "kelime") %>%
+  left_join(duygu_sozlugu, by = "kelime") %>%
+  filter(!is.na(duygu)) %>%
+  count(duygu, sort = TRUE)
+
+# Grafik cizimi
+ggplot(trigram_duygu_iklim, aes(x = reorder(duygu, n), y = n, fill = duygu)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  geom_text(aes(label = n), vjust = -0.5, size = 6, fontface = "bold") +
+  scale_fill_manual(values = c("olumlu" = "#4caf50", "olumsuz" = "#f44336")) +
+  labs(title = "Yorumlardaki Duygu Dagilimi",
+       subtitle = "Her trigramdaki anlamli kelimeler duygu sozlugu ile eslestirildi",
+       x = "Duygu", y = "Kullanim Sayisi") +
+  theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(face = "bold", size = 18, hjust = 0.5),
+        plot.subtitle = element_text(size = 13, hjust = 0.5))
+
+```
+
+
+##### Bert ile Duygu Analizi 
+  İklim değişikliği ve iklim kanunu hakkındaki yorumların duygu dağılımını içeren bir analiz yapmış bulunmaktayım. Bu analizde asıl hedef iklim değişikliği konusunda bireylerin pozitif ve negatif düşüncelerini öğrenmektir. Bunlar sonucunda 1509 negatif düşünce, 1383 pozitif düşünce vardır. Duygu skorlarına baktığımızda ortalama “-0.044” dur bu da yorumların genel olarak hafif negatif bir duygu durumunu yansıttığını gösterir. Ancak ortalama sıfıra çok yakın olduğu için, yorumların neredeyse nötre yakın olduğu da söylenebilir. Bu durum, iklim değişikliği gibi ciddi bir konuda insanların ifadelerinin karamsarlık olduğu söyleyebiliriz. Varyans ve standart sapma değerleri 1'e çok yakın, bu da yorumlar arasında belirgin bir duygu çeşitliliği olduğunu gösteriyor. Bazı yorumlar yoğun negatif, bazıları ise nötr veya hafif pozitif olabilir. Bu, konunun toplumda kutuplaşmaya veya farklı bakış açılarına yol açtığını düşündürüyor.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+dosya_yolu_iklim <- "C:/Users/cyurt/OneDrive/Belgeler/sosyalmedyaproje/yorumlar_duygu.csv"
+
+# Veriyi oku
+veri_iklim <- read_csv(dosya_yolu_iklim, locale = locale(encoding = "UTF-8"))
+
+
+# Veriyi oku
+duygu_df_iklim <- read.csv("C:/Users/cyurt/OneDrive/Belgeler/sosyalmedyaproje/yorumlar_duygu.csv")
+
+# Duygu dagilimini hesapla
+polarite_sayilari_iklim <- duygu_df_iklim %>%
+  group_by(duygu) %>%
+  summarise(sayi = n())
+
+# Grafikle g??ster
+ggplot(polarite_sayilari_iklim, aes(x = reorder(duygu, -sayi), y = sayi, fill = duygu)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  scale_fill_manual(values = c("positive" = "#2ecc71", "neutral" = "#95a5a6", "negative" = "#e74c3c")) +
+  labs(title = "Yorumlarin Polarite Dagilimi",
+       x = "Duygu Turu",
+       y = "Yorum Sayisi") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+
+```
+
+
+# 5. Sonuç
+
+  Sonuç olarak projemde asıl hedefimin toplum içerisinde berliediğim konu başlıklarına verdiği tepkileri “Youtube” üzerinden yorumlarına ulaşarak onları analiz etmektir. Her bir konuyu açıklayacak olursam
+  Ahmet Minguzzi Olayı toplum içerisinde fazlasıyla tepkiyle karşılanan olay demek yanlış olmaz. Çünkü keskin cümleler ile idam istenmesi ayrıca aile olan baş sağlığı dilekleri durumun toplum tarafından üzücü karşılandığını bize açıkça belirtir.
+  
+  İstanbul Deprem Haberleri toplumun bu konu hakkında bilinçli olduğunu ayrıca bireylerin bu konu hakkında hassas noktaları unutmadığını anlayabiliriz. Ayrıca yapılan analizler sonucunda toplumun büyük çoğunluğu bu konu hakkında korku ve endişe içerisinde olduğunu belirtebiliriz.
+  
+  Asgari Ücret Haberleri elde edilen veriler sayesinde belirli kesimin asgari ücret konusunda mutlu olmadığını ve emekli kesimin de asgari ücreti artık ilgilendirdiğini söyleyebiliriz.
+  
+  İklim Değişikliği Haberlerini analiz ederek elde ettiğim yorumlar ışığında toplumun belirli kesimin iklim değişikliği hakkında yeterli bilgiye sahip olduğunu söyleyebilirim. Öyle ki gerek kelime grupları gerek kelime bulutlarında bunu ispatlamıştır. Ama diğer çarpıcı bir konu toplumun iklim kanunu kabul olmasını isteyen ve istemeyen taraf olarak ikiye ayrıldığını söyleyebiliriz.
+  
+	Yapmış olduğum proje kapsamında toplumun haberlere karşı tepkilerini ölçerek tek bir platform üzerinden analizler ile çıktı sağlamayı amaçladım. 
+
+
